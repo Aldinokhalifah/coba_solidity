@@ -12,7 +12,7 @@ async function main() {
     const [signer] = await hre.ethers.getSigners();
     const signerAddress = await signer.getAddress();
 
-    // set buku
+    // set buku 
     await book.setBook("Si Pitung", "Pitung", 1990);
     await book.setBook("Hitam Legam", "Amba", 1960);
 
