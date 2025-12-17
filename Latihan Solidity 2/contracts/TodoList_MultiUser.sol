@@ -62,7 +62,7 @@ contract TodoList_MultiUser {
     function toggleComplete(uint id) public {
         require(todos[msg.sender][id].exists, "ID tidak ditemukan");
 
-        todos[msg.sender][id].completed = true;
+        todos[msg.sender][id].completed = !todos[msg.sender][id].completed;
     }
 
     function deleteTodo(uint id) public {
