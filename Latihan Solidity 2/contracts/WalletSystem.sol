@@ -18,6 +18,8 @@ contract WalletSystem {
     event WithdrawRequested(uint id, address user, uint amount);
     event WithdrawApproved(uint id);
     event WithdrawProcessed(uint id, address user, uint amount);
+    event WithdrawRejected(uint id);
+    event WithdrawCancelled(uint id);
 
 
 
@@ -95,15 +97,17 @@ contract WalletSystem {
         requests[requestId].processed = true;
         requests[requestId].approved = false;
 
+        emit WithdrawRejected(requestId);
+
     }
 
-    function processWithdraw(uint requestId) public payable onlyOwner() {
+    function processWithdraw(uint requestId) public onlyOwner() {
         WithdrawRequest storage r = requests[requestId];
 
         require(r.exists, "Permintaan tidak ada");
         require(r.approved, "Permintaan belum disetujui");
         require(!r.processed, "Permintaan sudah diproses");
-        require(users[r.user].balance >= r.amount, "Saldo anda kurang");
+        require(address(this).balance >= r.amount, "Saldo anda kurang");
 
         r.processed = true;
         users[r.user].balance -= r.amount;
@@ -120,22 +124,33 @@ contract WalletSystem {
         require(!r.processed, "Sudah diproses");
 
         r.processed = true;
+
+        emit WithdrawCancelled(requestId);
     }
 
     function getMyRequests() public view returns (WithdrawRequest[] memory) {
-        uint length = requestIds.length;
+        uint count = 0;
 
-        WithdrawRequest[] memory allData = new WithdrawRequest[](length);
-
-        for(uint i = 0; i < length; i++) {
-            uint id = requestIds[i];
-            if(requests[id].user == msg.sender) {
-                allData[i] = requests[id];
+        for (uint i = 0; i < requestIds.length; i++) {
+            if (requests[requestIds[i]].user == msg.sender) {
+                count++;
             }
         }
 
-        return allData;
+        WithdrawRequest[] memory myRequests = new WithdrawRequest[](count);
+        uint index = 0;
+
+        for (uint i = 0; i < requestIds.length; i++) {
+            uint id = requestIds[i];
+            if (requests[id].user == msg.sender) {
+                myRequests[index] = requests[id];
+                index++;
+            }
+        }
+
+        return myRequests;
     }
+
 
     function getRequestStatus(uint requestId) public view returns(bool, bool) {
         require(requests[requestId].exists, "Permintaan tidak ada");
