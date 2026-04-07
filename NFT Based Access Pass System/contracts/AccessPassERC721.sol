@@ -22,12 +22,38 @@ contract AccessPassERC721 is ERC721, Ownable, ReentrancyGuard {
     event ExpiryExtended(uint256 indexed tokenId, uint64 oldExpiry, uint64 newExpiry);
     event SoulboundSet(uint256 indexed tokenId, bool soulbound);
 
-    constructor(string memory name_, string memory symbol_, string memory baseURI_) ERC721(name_, symbol_) {
+    constructor(string memory name_, string memory symbol_, string memory baseURI_)
+        ERC721(name_, symbol_)
+        Ownable(msg.sender)
+    {
         _baseTokenURI = baseURI_;
     }
 
+    function _tokenExists(uint256 tokenId) internal view returns (bool) {
+        return _ownerOf(tokenId) != address(0);
+    }
+
+    function _toString(uint256 value) internal pure returns (string memory) {
+        if (value == 0) {
+            return "0";
+        }
+        uint256 temp = value;
+        uint256 digits;
+        while (temp != 0) {
+            digits++;
+            temp /= 10;
+        }
+        bytes memory buffer = new bytes(digits);
+        while (value != 0) {
+            digits -= 1;
+            buffer[digits] = bytes1(uint8(48 + uint256(value % 10)));
+            value /= 10;
+        }
+        return string(buffer);
+    }
+
     modifier onlyExisting(uint256 tokenId) {
-        require(_exists(tokenId), "AccessPass: nonexistent token");
+        require(_tokenExists(tokenId), "AccessPass: nonexistent token");
         _;
     }
 
@@ -58,7 +84,7 @@ contract AccessPassERC721 is ERC721, Ownable, ReentrancyGuard {
     }
 
     function isValid(uint256 tokenId) public view returns (bool) {
-        if(!_exists(tokenId)) {
+        if(!_tokenExists(tokenId)) {
             return false;
         }
 
@@ -71,4 +97,61 @@ contract AccessPassERC721 is ERC721, Ownable, ReentrancyGuard {
         return block.timestamp <= exp;
     }
 
+    function _update(address to, uint256 tokenId, address auth) internal override returns (address) {
+        address from = _ownerOf(tokenId);
+
+        // block normal transfers only
+        if (from != address(0) && to != address(0)) {
+            require(!_soulbound[tokenId], "AccessPass: soulbound token");
+        }
+
+        return super._update(to, tokenId, auth);
+    }
+
+    function revoke(uint256 tokenId) external onlyOwner onlyExisting(tokenId) nonReentrant {
+        address operator = _msgSender();  
+
+        delete _expiry[tokenId];
+        delete _soulbound[tokenId];
+        delete _tokenURIs[tokenId];
+
+        // Token is revoked by burning it
+        _burn(tokenId);
+        emit PassRevoked(tokenId, operator);
+    }
+
+    function setExpiry(uint256 tokenId, uint64 newExpiry) external onlyOwner onlyExisting(tokenId) {
+        uint64 old = _expiry[tokenId];
+        _expiry[tokenId] = newExpiry;
+
+        emit ExpiryExtended(tokenId, old, newExpiry);
+    }
+
+    function extendExpiry(uint256 tokenId, uint64 extraSeconds) external onlyOwner onlyExisting(tokenId) {
+        require(extraSeconds > 0, "INVALID EXTENSION");
+
+        uint64 old = _expiry[tokenId];
+        uint64 newExpiry;
+
+        if(old == 0) {
+            // infinite
+            newExpiry = 0;
+        } else {
+            newExpiry = old + extraSeconds;
+        }
+
+        _expiry[tokenId] = newExpiry;
+
+        emit ExpiryExtended(tokenId, old, newExpiry);
+    }
+
+    function tokenURI(uint256 tokenId) public view override onlyExisting(tokenId) returns (string memory) {
+        string memory customURI = _tokenURIs[tokenId];
+
+        if (bytes(customURI).length > 0) {
+            return customURI;
+        }
+
+        return string(abi.encodePacked(_baseTokenURI, _toString(tokenId)));
+    }
 }
