@@ -145,7 +145,9 @@ contract AccessPassERC721 is ERC721, Ownable, ReentrancyGuard {
         emit ExpiryExtended(tokenId, old, newExpiry);
     }
 
-    function tokenURI(uint256 tokenId) public view override onlyExisting(tokenId) returns (string memory) {
+    function tokenURI(uint256 tokenId) public view override returns (string memory) {
+        require(_ownerOf(tokenId) != address(0), "ERC721: nonexistent token");
+
         string memory customURI = _tokenURIs[tokenId];
 
         if (bytes(customURI).length > 0) {
