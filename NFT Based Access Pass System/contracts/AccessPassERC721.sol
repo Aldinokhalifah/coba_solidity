@@ -156,4 +156,15 @@ contract AccessPassERC721 is ERC721, Ownable, ReentrancyGuard {
 
         return string(abi.encodePacked(_baseTokenURI, _toString(tokenId)));
     }
+
+    function getPassInfo(uint256 tokenId) external view returns (address owner, uint64 expiry, bool soulbound, bool valid ) {
+        require(_tokenExists(tokenId));
+
+        return (
+            ownerOf(tokenId),
+            _expiry[tokenId],
+            _soulbound[tokenId],
+            isValid(tokenId)
+        );
+    }
 }
