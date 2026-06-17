@@ -8,8 +8,9 @@ pragma solidity ^0.8.28;
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 
-contract AccessPassERC721 is ERC721, Ownable, ReentrancyGuard {
+contract AccessPassERC721 is ERC721Enumerable, Ownable, ReentrancyGuard {
     mapping(uint256 => uint64) private _expiry;
     mapping(uint256 => bool) private _soulbound;
     mapping(uint256 => string) private _tokenURIs;
@@ -166,5 +167,21 @@ contract AccessPassERC721 is ERC721, Ownable, ReentrancyGuard {
             _soulbound[tokenId],
             isValid(tokenId)
         );
+    }
+
+    function totalMinted() external view returns(uint256) {
+        return _nextId;
+    }
+
+    function getTokenByOwner(address owner) external view returns(uint256[] memory) {
+        uint256 balance = balanceOf(owner);
+
+        uint256[] memory tokenIds = new uint256[](balance);
+
+        for(uint256 i = 0; i < balance; i++) {
+            tokenIds[i] = tokenOfOwnerByIndex(owner, i);
+        }
+
+        return tokenIds;
     }
 }
